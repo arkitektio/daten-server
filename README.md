@@ -8,8 +8,24 @@ cluded with the Apache AGE extension.
 
 ### Environment Variables
 
-The following environment variables is supported:
+The following environment variables are supported:
 
 ```bash
 POSTGRES_MULTIPLE_DATABASE=database1,database2
+POSTGRES_PASSWORD: $THE_GLOBAL_PASSWORD
+POSTGRES_USER:  $THE_GLOBAL_USER
 ```
+
+### Volumes
+
+To persist the data, you can mount a volume to the following path:
+
+```yaml
+
+volumes:
+    - /path/to/mount:/var/lib/postgresql/data
+```
+## Roadmap
+
+- [x] Add arm 64 support
+- [ ] Switch to stable release
