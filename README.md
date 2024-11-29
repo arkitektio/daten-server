@@ -1,8 +1,7 @@
 # Daten-Server
 
 This is a simple extensions to the PostgresSQL 15 Database Container, to provide support
-for multiple databases and users, when running in a Docker environment, it also comes in
-cluded with the Apache AGE extension.
+for multiple databases and users, when running in a Docker environment, it also comes included with the Apache AGE extension.
 
 ## Usage
 
