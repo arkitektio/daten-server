@@ -18,6 +18,7 @@ POSTGRES_USER:  $THE_GLOBAL_USER
 ### Volumes
 
 To persist the data, you can mount a volume to the following path:
+Like so:
 
 ```yaml
 
