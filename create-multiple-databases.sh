@@ -12,10 +12,11 @@ function create_user_and_database() {
 	    GRANT ALL PRIVILEGES ON DATABASE $database TO $database;
 EOSQL
 
-	echo "  Loading AGE extension into database '$database'"
+	echo "  Loading AGE and cube extensions into database '$database'"
 	psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname="$database" <<-EOSQL
 	    CREATE EXTENSION IF NOT EXISTS age;
 	    LOAD 'age';
+	    CREATE EXTENSION IF NOT EXISTS cube;
 EOSQL
 }
 
