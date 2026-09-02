@@ -12,10 +12,11 @@ function create_user_and_database() {
 	    GRANT ALL PRIVILEGES ON DATABASE $database TO $database;
 EOSQL
 
-	echo "  Loading AGE and cube extensions into database '$database'"
+	# `cube` is contrib and ships with the official image. AGE is no longer
+	# loaded: nothing in the stack uses it since kraph's projection moved to
+	# ordinary tables (kraph RFC 0005), and stock Postgres does not carry it.
+	echo "  Loading cube extension into database '$database'"
 	psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname="$database" <<-EOSQL
-	    CREATE EXTENSION IF NOT EXISTS age;
-	    LOAD 'age';
 	    CREATE EXTENSION IF NOT EXISTS cube;
 EOSQL
 }
