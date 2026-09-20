@@ -22,8 +22,21 @@ POSTGRES_PASSWORD: $THE_GLOBAL_PASSWORD
 POSTGRES_USER:  $THE_GLOBAL_USER
 ```
 
-Each database listed gets its own user of the same name, with the `cube` extension
-loaded into it.
+Each database listed gets its own user of the same name, with the `cube` and `vector`
+extensions loaded into it.
+
+### Extensions
+
+| Extension | Origin | Used by |
+|---|---|---|
+| `cube` | PostgreSQL contrib (in the official image) | mikro's spatial annotation queries |
+| `vector` | [pgvector](https://github.com/pgvector/pgvector) 0.8.6, from the PGDG apt repository | rekuest's and mikro's semantic `search` filters (one embedding per action / folder / dataset) |
+
+Both are created per database by the init script, which only runs on the first start of an
+empty data directory. A cluster created by an earlier image gets `vector` from each
+service's own migration (`CREATE EXTENSION IF NOT EXISTS vector`), which works because the
+services connect as the global superuser. With a locked-down service user, run it once by
+hand as the superuser in each database instead.
 
 ### Volumes
 
@@ -52,6 +65,7 @@ branch.
 
 - [x] Add arm 64 support
 - [x] Switch to stable release
+- [x] Ship pgvector for the services' semantic search
 - [ ] Move to the PostgreSQL 19 release image at GA (currently 19beta3)
 
 ### License

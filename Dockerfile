@@ -16,7 +16,8 @@ LABEL org.opencontainers.image.title="daten" \
       org.opencontainers.image.source="https://github.com/arkitektio/daten-server" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${VERSION}" \
-      io.arkitekt.postgres.major="19"
+      io.arkitekt.postgres.major="19" \
+      io.arkitekt.pgvector="0.8.6"
 
 # Postgres 18's official image moved the cluster: `PGDATA` became
 # /var/lib/postgresql/<major>/docker (on 19: /var/lib/postgresql/19/docker) and its
@@ -29,6 +30,19 @@ LABEL org.opencontainers.image.title="daten" \
 # Holding PGDATA where it has always been is the whole point of a wrapper image: the major
 # underneath may move, the contract with the deployment may not.
 ENV PGDATA=/var/lib/postgresql/data
+
+# pgvector: the `vector` type and its distance operators, behind the services' semantic
+# `search` filters (rekuest actions, mikro folders/datasets store one embedding per row).
+# PGDG packages it for the 19 beta on this base (the image ships `trixie-pgdg main 19` in
+# its apt sources), so it is installed from apt and the image keeps no toolchain. Should
+# the package ever lag the base, the fallback is pgvector's own recipe: ADD
+# https://github.com/pgvector/pgvector.git#v0.8.6, build-essential +
+# postgresql-server-dev-$PG_MAJOR, `make && make install`, then remove the toolchain.
+# The extension is created per database by the init script below and by each service's
+# migration (it is not `trusted`, so it needs the superuser either way).
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends postgresql-$PG_MAJOR-pgvector \
+ && rm -rf /var/lib/apt/lists/*
 
 COPY ./create-multiple-databases.sh /docker-entrypoint-initdb.d/create-multiple-databases.sh
 RUN chmod +x /docker-entrypoint-initdb.d/create-multiple-databases.sh
