@@ -12,18 +12,20 @@ function create_user_and_database() {
 	    GRANT ALL PRIVILEGES ON DATABASE $database TO $database;
 EOSQL
 
-	# `cube` is contrib and ships with the official image. `vector` (pgvector) is
-	# installed by the Dockerfile; the services' semantic `search` filters need it.
+	# `cube` is contrib and ships with the official image. `vector` (pgvector) and
+	# `postgis` are installed by the Dockerfile; the services' semantic `search`
+	# filters need `vector`, bank's merchant locations need `postgis`.
 	# Neither extension is `trusted`, so they are created here as the superuser --
 	# a service user could not do it on its own later. This script only runs on
 	# the first start of an empty PGDATA; existing clusters get `vector` from each
 	# service's migration. AGE is no longer loaded: nothing in the stack uses it
 	# since kraph's projection moved to ordinary tables (kraph RFC 0005), and
 	# stock Postgres does not carry it.
-	echo "  Loading cube and vector extensions into database '$database'"
+	echo "  Loading cube, vector and postgis extensions into database '$database'"
 	psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname="$database" <<-EOSQL
 	    CREATE EXTENSION IF NOT EXISTS cube;
 	    CREATE EXTENSION IF NOT EXISTS vector;
+	    CREATE EXTENSION IF NOT EXISTS postgis;
 EOSQL
 }
 

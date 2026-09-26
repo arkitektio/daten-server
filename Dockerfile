@@ -17,7 +17,8 @@ LABEL org.opencontainers.image.title="daten" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${VERSION}" \
       io.arkitekt.postgres.major="19" \
-      io.arkitekt.pgvector="0.8.6"
+      io.arkitekt.pgvector="0.8.6" \
+      io.arkitekt.postgis="3.6.4"
 
 # Postgres 18's official image moved the cluster: `PGDATA` became
 # /var/lib/postgresql/<major>/docker (on 19: /var/lib/postgresql/19/docker) and its
@@ -40,8 +41,25 @@ ENV PGDATA=/var/lib/postgresql/data
 # postgresql-server-dev-$PG_MAJOR, `make && make install`, then remove the toolchain.
 # The extension is created per database by the init script below and by each service's
 # migration (it is not `trusted`, so it needs the superuser either way).
+#
+# PostGIS: the `geography` type and its spatial functions, behind bank's merchant locations
+# (`near` filters: ST_DWithin / ST_Distance over a GiST-indexed geography column). Also from
+# PGDG for the 19 beta (3.6.4 on trixie). The services use it without GeoDjango (no GDAL in
+# their images), so only the server side is needed here. Created like `vector`: by the init
+# script on a new cluster, by the using service's migration on an existing one.
+#
+# Both are PINNED to builds made against this base's server (19beta3). A prerelease major
+# changes its C ABI between betas, and PGDG rebuilds extensions for the newest beta under the
+# same upstream version: pgvector 0.8.6-1.pgdg13+2 is built for 19beta4 and on this server
+# fails `CREATE EXTENSION vector` ("index access method handler function … did not return an
+# IndexAmRoutine struct"). Move these pins together with the base tag/digest.
+ARG PGVECTOR_DEB=0.8.6-1.pgdg13+1
+ARG POSTGIS_DEB=3.6.4+dfsg-2.pgdg13+1
 RUN apt-get update \
- && apt-get install -y --no-install-recommends postgresql-$PG_MAJOR-pgvector \
+ && apt-get install -y --no-install-recommends \
+      postgresql-$PG_MAJOR-pgvector=$PGVECTOR_DEB \
+      postgresql-$PG_MAJOR-postgis-3=$POSTGIS_DEB \
+      postgresql-$PG_MAJOR-postgis-3-scripts=$POSTGIS_DEB \
  && rm -rf /var/lib/apt/lists/*
 
 COPY ./create-multiple-databases.sh /docker-entrypoint-initdb.d/create-multiple-databases.sh

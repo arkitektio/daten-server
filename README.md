@@ -22,8 +22,8 @@ POSTGRES_PASSWORD: $THE_GLOBAL_PASSWORD
 POSTGRES_USER:  $THE_GLOBAL_USER
 ```
 
-Each database listed gets its own user of the same name, with the `cube` and `vector`
-extensions loaded into it.
+Each database listed gets its own user of the same name, with the `cube`, `vector` and
+`postgis` extensions loaded into it.
 
 ### Extensions
 
@@ -31,10 +31,11 @@ extensions loaded into it.
 |---|---|---|
 | `cube` | PostgreSQL contrib (in the official image) | mikro's spatial annotation queries |
 | `vector` | [pgvector](https://github.com/pgvector/pgvector) 0.8.6, from the PGDG apt repository | rekuest's and mikro's semantic `search` filters (one embedding per action / folder / dataset) |
+| `postgis` | [PostGIS](https://postgis.net) 3.6.4, from the PGDG apt repository | bank's merchant locations (`geography` points, `ST_DWithin` / `ST_Distance` for `near` filters) |
 
-Both are created per database by the init script, which only runs on the first start of an
-empty data directory. A cluster created by an earlier image gets `vector` from each
-service's own migration (`CREATE EXTENSION IF NOT EXISTS vector`), which works because the
+All are created per database by the init script, which only runs on the first start of an
+empty data directory. A cluster created by an earlier image gets `vector` / `postgis` from
+each service's own migration (`CREATE EXTENSION IF NOT EXISTS …`), which works because the
 services connect as the global superuser. With a locked-down service user, run it once by
 hand as the superuser in each database instead.
 
