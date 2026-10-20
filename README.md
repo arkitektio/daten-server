@@ -7,7 +7,7 @@ The Postgres image of an [Arkitekt](https://arkitekt.live) deployment, published
 - the `cube`, `vector` and `postgis` extensions in each of them;
 - a data directory that stays at `/var/lib/postgresql/data`, whatever the Postgres major.
 
-It currently carries **PostgreSQL 19beta3**. That is a prerelease, on purpose: the stack
+It currently carries **PostgreSQL 19rc1**. That is a prerelease, on purpose: the stack
 uses PostgreSQL 19's native SQL/PGQ (`CREATE PROPERTY GRAPH` / `GRAPH_TABLE`), which first
 ships in 19. The tag and digest move to the release image together once 19 is final.
 Apache AGE is not included.
@@ -75,3 +75,8 @@ The image version is its own and is not the Postgres major: every `1.x` carries 
 
 A cluster written by one Postgres major cannot be opened by another. Moving between them is
 a migration, not an upgrade in place: dump on the old image, restore on the new one.
+
+The same can hold between two prereleases of one major. A beta or release candidate may
+change the catalog version, and the server then refuses to start on a cluster an earlier
+prerelease wrote (`database files are incompatible with server`). It refuses rather than
+damages anything: dump on the old image and restore on the new one, as between majors.

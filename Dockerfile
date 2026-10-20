@@ -2,9 +2,11 @@
 # kraph's projection was an AGE graph; kraph draws into ordinary tables now (kraph RFC
 # 0005) and no service in the stack loads the extension, so the base is the official image
 # again. Pinned by digest as well as by tag, because a version tag is only as immutable as
-# the base it was built from — and 19beta3 is a prerelease tag on top of that: move tag and
-# digest together to the release image when 19 goes GA (expected Sept/Oct 2026).
-FROM postgres:19beta3@sha256:a48b19841e04b35b72a25e9a94314ac80546d32b5e2e3cd9279390cbd8a99572
+# the base it was built from — and 19rc1 is a prerelease tag on top of that: move tag and
+# digest together to the release image when 19 goes GA (planned for 19 Nov 2026). The digest
+# is the multi-platform index, never one platform's manifest: pinned to the amd64 manifest,
+# the arm64 build would carry amd64 binaries and run under emulation. CI checks this.
+FROM postgres:19rc1@sha256:9df2c846b8b9130f3877a30495d9931538954768602a64d32c415c44bd958e9c
 
 # Set by CI from the git tag. The major is the Postgres major on purpose: for this image
 # that is the only breaking change there is, since a cluster written by one major cannot be
@@ -48,13 +50,15 @@ ENV PGDATA=/var/lib/postgresql/data
 # their images), so only the server side is needed here. Created like `vector`: by the init
 # script on a new cluster, by the using service's migration on an existing one.
 #
-# Both are PINNED to builds made against this base's server (19beta3). A prerelease major
-# changes its C ABI between betas, and PGDG rebuilds extensions for the newest beta under the
-# same upstream version: pgvector 0.8.6-1.pgdg13+2 is built for 19beta4 and on this server
-# fails `CREATE EXTENSION vector` ("index access method handler function … did not return an
-# IndexAmRoutine struct"). Move these pins together with the base tag/digest.
-ARG PGVECTOR_DEB=0.8.6-1.pgdg13+1
-ARG POSTGIS_DEB=3.6.4+dfsg-2.pgdg13+1
+# Both are PINNED to the newest PGDG builds for this base's server (19rc1). A prerelease
+# major changes its C ABI between betas, and PGDG rebuilds extensions for the newest
+# prerelease under the same upstream version: pgvector 0.8.6-1.pgdg13+2 (built for 19beta4)
+# fails `CREATE EXTENSION vector` on a 19beta3 server ("index access method handler function
+# … did not return an IndexAmRoutine struct"), which is why the pins once held +1. Move these
+# pins together with the base tag/digest; the smoke workflow creates every extension on each
+# platform, so a pin the server cannot load fails CI instead of a deployment.
+ARG PGVECTOR_DEB=0.8.6-1.pgdg13+2
+ARG POSTGIS_DEB=3.6.4+dfsg-2.pgdg13+2
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       postgresql-$PG_MAJOR-pgvector=$PGVECTOR_DEB \
