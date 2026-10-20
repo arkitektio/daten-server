@@ -19,7 +19,7 @@ LABEL org.opencontainers.image.title="daten" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${VERSION}" \
       io.arkitekt.postgres.major="19" \
-      io.arkitekt.pgvector="0.8.6" \
+      io.arkitekt.pgvector="0.8.7" \
       io.arkitekt.postgis="3.6.4"
 
 # Postgres 18's official image moved the cluster: `PGDATA` became
@@ -39,7 +39,7 @@ ENV PGDATA=/var/lib/postgresql/data
 # PGDG packages it for the 19 beta on this base (the image ships `trixie-pgdg main 19` in
 # its apt sources), so it is installed from apt and the image keeps no toolchain. Should
 # the package ever lag the base, the fallback is pgvector's own recipe: ADD
-# https://github.com/pgvector/pgvector.git#v0.8.6, build-essential +
+# https://github.com/pgvector/pgvector.git#v0.8.7, build-essential +
 # postgresql-server-dev-$PG_MAJOR, `make && make install`, then remove the toolchain.
 # The extension is created per database by the init script below and by each service's
 # migration (it is not `trusted`, so it needs the superuser either way).
@@ -50,15 +50,16 @@ ENV PGDATA=/var/lib/postgresql/data
 # their images), so only the server side is needed here. Created like `vector`: by the init
 # script on a new cluster, by the using service's migration on an existing one.
 #
-# Both are PINNED to the newest PGDG builds for this base's server (19rc1). A prerelease
+# Both are PINNED to the newest PGDG builds for this base's server (19rc1); the smoke
+# workflow lists the builds PGDG offers for the base when a pin needs to move. A prerelease
 # major changes its C ABI between betas, and PGDG rebuilds extensions for the newest
 # prerelease under the same upstream version: pgvector 0.8.6-1.pgdg13+2 (built for 19beta4)
 # fails `CREATE EXTENSION vector` on a 19beta3 server ("index access method handler function
 # … did not return an IndexAmRoutine struct"), which is why the pins once held +1. Move these
 # pins together with the base tag/digest; the smoke workflow creates every extension on each
 # platform, so a pin the server cannot load fails CI instead of a deployment.
-ARG PGVECTOR_DEB=0.8.6-1.pgdg13+2
-ARG POSTGIS_DEB=3.6.4+dfsg-2.pgdg13+2
+ARG PGVECTOR_DEB=0.8.7-1.pgdg13+1
+ARG POSTGIS_DEB=3.6.4+dfsg-2.pgdg13+1
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       postgresql-$PG_MAJOR-pgvector=$PGVECTOR_DEB \

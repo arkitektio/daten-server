@@ -42,7 +42,7 @@ directory. Adding a name later creates nothing.
 | Extension | Origin | Used by |
 | --- | --- | --- |
 | `cube` | PostgreSQL contrib (in the official image) | mikro's spatial annotation queries |
-| `vector` | [pgvector](https://github.com/pgvector/pgvector) 0.8.6, from the PGDG apt repository | the services' semantic `search` filters (one embedding per row) |
+| `vector` | [pgvector](https://github.com/pgvector/pgvector) 0.8.7, from the PGDG apt repository | the services' semantic `search` filters (one embedding per row) |
 | `postgis` | [PostGIS](https://postgis.net) 3.6.4, from the PGDG apt repository | bank's merchant locations (`geography` points, `ST_DWithin` / `ST_Distance`) |
 
 A cluster created by an earlier image does not have `vector` or `postgis` in its
