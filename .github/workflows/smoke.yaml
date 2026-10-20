@@ -1,0 +1,121 @@
+name: Smoke
+
+# Builds the image for each published platform and proves it works there, before a release
+# does: the base is a real multi-platform index, the binaries are the platform's own (not
+# another platform's under emulation), and every extension the init script creates loads on
+# this server. The extension pins are ABI-bound to the prerelease base (see the Dockerfile),
+# so moving the base without them fails here rather than in a deployment.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  base:
+    name: Base is a multi-platform index
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Check the pinned base digest
+        run: |
+          set -euo pipefail
+          ref="$(sed -n 's/^FROM \([^ ]*\).*/\1/p' Dockerfile | head -n1)"
+          echo "Base: $ref"
+          raw="$(docker buildx imagetools inspect --raw "$ref")"
+          media="$(jq -r '.mediaType' <<<"$raw")"
+          case "$media" in
+            application/vnd.oci.image.index.v1+json|application/vnd.docker.distribution.manifest.list.v2+json) ;;
+            *) echo "::error::The base digest is a single manifest ($media), not a multi-platform index. Pin the index digest."; exit 1 ;;
+          esac
+          for platform in amd64 arm64; do
+            jq -e --arg a "$platform" '.manifests[] | select(.platform.os == "linux" and .platform.architecture == $a)' <<<"$raw" >/dev/null \
+              || { echo "::error::The base index has no linux/$platform manifest."; exit 1; }
+          done
+          echo "The base index carries linux/amd64 and linux/arm64."
+
+  smoke:
+    name: Smoke (${{ matrix.platform }})
+    needs: base
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            machine: x86_64
+          - platform: linux/arm64
+            machine: aarch64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          load: true
+          tags: daten:smoke
+
+      - name: Start a cluster
+        run: |
+          docker run -d --name daten --platform "${{ matrix.platform }}" \
+            -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=smoke \
+            -e POSTGRES_MULTIPLE_DATABASES=smoke_db \
+            daten:smoke
+
+      - name: Wait until it serves
+        run: |
+          set -euo pipefail
+          # The init script runs against a temporary socket-only server; the TCP check only
+          # passes once the real server is up. Under emulation (arm64) this takes a while.
+          for _ in $(seq 1 120); do
+            if [ "$(docker inspect -f '{{.State.Running}}' daten)" != "true" ]; then
+              echo "::error::The container stopped during initialisation."
+              docker logs daten
+              exit 1
+            fi
+            if docker exec daten pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1; then
+              echo "Serving."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::The server did not come up within 10 minutes."
+          docker logs daten
+          exit 1
+
+      - name: Check the platform, the build and the extensions
+        run: |
+          set -euo pipefail
+          q() { docker exec daten psql -h 127.0.0.1 -U postgres -d smoke_db -v ON_ERROR_STOP=1 -tAc "$1"; }
+
+          machine="$(docker exec daten uname -m)"
+          [ "$machine" = "${{ matrix.machine }}" ] \
+            || { echo "::error::The image reports $machine, expected ${{ matrix.machine }}."; exit 1; }
+
+          echo "Server: $(q 'SELECT version()')"
+          [ "$(q 'SHOW debug_assertions')" = "off" ] \
+            || { echo "::error::The server is built with assertions."; exit 1; }
+
+          for ext in cube vector postgis; do
+            [ "$(q "SELECT count(*) FROM pg_extension WHERE extname = '$ext'")" = "1" ] \
+              || { echo "::error::Extension $ext is not installed in smoke_db."; exit 1; }
+          done
+
+          # Exercise each extension's C code, not only its catalog entry.
+          q "SELECT '[1,2,3]'::vector <-> '[3,2,1]'::vector"
+          q "CREATE TABLE items (embedding vector(3)); CREATE INDEX ON items USING hnsw (embedding vector_l2_ops); INSERT INTO items VALUES ('[1,2,3]'); SELECT count(*) FROM items ORDER BY 1"
+          q "SELECT ST_DWithin('SRID=4326;POINT(14.29 48.31)'::geography, 'SRID=4326;POINT(14.30 48.31)'::geography, 1000)"
+          q "SELECT cube_distance(cube(array[0,0]), cube(array[3,4]))"
+          echo "All extensions load and run on ${{ matrix.platform }}."
+
+      - name: Logs
+        if: always()
+        run: docker logs daten 2>&1 | tail -n 100 || true
