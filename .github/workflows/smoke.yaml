@@ -36,6 +36,18 @@ jobs:
           done
           echo "The base index carries linux/amd64 and linux/arm64."
 
+      - name: List the extension builds PGDG offers for this base
+        # When a pin is missing the build only says "exit code: 100"; this names what exists.
+        run: |
+          set -euo pipefail
+          ref="$(sed -n 's/^FROM \([^ ]*\).*/\1/p' Dockerfile | head -n1)"
+          docker run --rm "$ref" bash -c '
+            apt-get update -qq >/dev/null
+            echo "server: $(dpkg-query -W -f="\${Version}" postgresql-$PG_MAJOR)"
+            for p in postgresql-$PG_MAJOR-pgvector postgresql-$PG_MAJOR-postgis-3; do
+              echo "$p: $(apt-cache madison "$p" | awk "{print \$3}" | paste -sd " ")"
+            done' | while IFS= read -r line; do echo "::notice title=PGDG::$line"; done
+
   smoke:
     name: Smoke (${{ matrix.platform }})
     needs: base
